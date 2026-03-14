@@ -1,20 +1,14 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.SQLException;
 
 public class LoginPage {
 
-    // In-memory users for this run only
-    private static final Map<String, String> USERS = new HashMap<>();
-
-    static {
-        // Dummy default account
-        USERS.put("admin", "password123");
-    }
-
     public static void main(String[] args) {
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
         SwingUtilities.invokeLater(LoginPage::createAndShowLogin);
     }
 
@@ -25,7 +19,7 @@ public class LoginPage {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel titleLabel = new JLabel("Payroll System Login", SwingConstants.CENTER);
+        JLabel titleLabel = new JLabel("Philippine Payroll – HR Login", SwingConstants.CENTER);
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 18f));
         mainPanel.add(titleLabel, BorderLayout.NORTH);
 
@@ -41,47 +35,29 @@ public class LoginPage {
         JPasswordField passField = new JPasswordField(20);
 
         JButton loginButton = new JButton("Login");
-        JButton registerButton = new JButton("Register");
 
         loginButton.addActionListener((ActionEvent e) -> {
             String username = userField.getText().trim();
             String password = new String(passField.getPassword());
-
-            if (USERS.containsKey(username) && USERS.get(username).equals(password)) {
-                JOptionPane.showMessageDialog(frame,
-                        "Login successful. Welcome, " + username + "!",
-                        "Login",
-                        JOptionPane.INFORMATION_MESSAGE);
-                frame.dispose();
-                // Open the payroll window
-                page.createAndShowUI();
-            } else {
-                JOptionPane.showMessageDialog(frame,
-                        "Invalid username or password.",
-                        "Login Failed",
-                        JOptionPane.ERROR_MESSAGE);
-                passField.setText("");
-            }
-        });
-
-        registerButton.addActionListener((ActionEvent e) -> {
-            String username = userField.getText().trim();
-            String password = new String(passField.getPassword());
-
             if (username.isEmpty() || password.isEmpty()) {
-                JOptionPane.showMessageDialog(frame,
-                        "Username and password cannot be empty.",
-                        "Register Error",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(frame, "Enter username and password.", "Login", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
-            USERS.put(username, password);
-            JOptionPane.showMessageDialog(frame,
-                    "User \"" + username + "\" registered.\nYou can now log in with this account.",
-                    "Registered",
-                    JOptionPane.INFORMATION_MESSAGE);
-            passField.setText("");
+            try {
+                HRUserDao.HRUser user = HRUserDao.findByUsernameAndPassword(username, password);
+                if (user != null) {
+                    Integer empId = EmployeeRoleDao.getEmployeeIdByRoleId(user.employeeRoleId);
+                    AppSession.setHRUser(user.hrUserId, user.username, user.hrRole, empId);
+                    JOptionPane.showMessageDialog(frame, "Welcome, " + username + "!", "Login", JOptionPane.INFORMATION_MESSAGE);
+                    frame.dispose();
+                    page.createAndShowUI();
+                } else {
+                    JOptionPane.showMessageDialog(frame, "Invalid username or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    passField.setText("");
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(frame, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         });
 
         gbc.gridx = 0;
@@ -96,15 +72,11 @@ public class LoginPage {
         gbc.gridx = 1;
         formPanel.add(passField, gbc);
 
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        buttonsPanel.add(registerButton);
-        buttonsPanel.add(loginButton);
-
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.EAST;
-        formPanel.add(buttonsPanel, gbc);
+        formPanel.add(loginButton, gbc);
 
         mainPanel.add(formPanel, BorderLayout.CENTER);
 
