@@ -14,6 +14,21 @@ public class PayrollPeriodDao {
         return list;
     }
 
+    /** Periods whose start_date is within [startInclusive, endInclusive]. For 13th-month quarter range. */
+    public static List<PayrollPeriod> getPeriodsInDateRange(Date startInclusive, Date endInclusive) throws SQLException {
+        List<PayrollPeriod> list = new ArrayList<>();
+        try (Connection c = Database.getConnection();
+             PreparedStatement ps = c.prepareStatement("SELECT period_id, period_name, start_date, end_date, pay_date, status FROM PayrollPeriod WHERE start_date >= ? AND start_date <= ? ORDER BY start_date")) {
+            ps.setDate(1, startInclusive);
+            ps.setDate(2, endInclusive);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next())
+                    list.add(new PayrollPeriod(rs.getInt(1), rs.getString(2), rs.getDate(3), rs.getDate(4), rs.getDate(5), rs.getString(6)));
+            }
+        }
+        return list;
+    }
+
     public static void insert(String name, Date start, Date end, Date payDate, String status) throws SQLException {
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement("INSERT INTO PayrollPeriod (period_name, start_date, end_date, pay_date, status) VALUES (?,?,?,?,?)")) {

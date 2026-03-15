@@ -139,6 +139,39 @@ public class DeductionDao {
         }
     }
 
+    /** For company-style deduction summary: all deductions for period with department, grouped by dept/employee/type. */
+    public static List<DeductionExportRow> getDeductionDetailForExportByDepartment(Integer periodId) throws SQLException {
+        List<DeductionExportRow> list = new ArrayList<>();
+        String sql = "SELECT COALESCE(d.department_name, 'No Department'), e.employee_id, e.full_name, ded.deduction_type, COALESCE(SUM(ded.amount), 0) " +
+            "FROM Deduction ded JOIN Employee e ON e.employee_id = ded.employee_id " +
+            "LEFT JOIN EmployeeRole er ON er.employee_id = e.employee_id AND er.is_active = 1 " +
+            "LEFT JOIN Department d ON d.department_id = er.department_id " +
+            "WHERE ded.payroll_period_id = ? " +
+            "GROUP BY d.department_name, e.employee_id, e.full_name, ded.deduction_type " +
+            "ORDER BY COALESCE(d.department_name, 'zzz'), e.full_name, ded.deduction_type";
+        try (Connection c = Database.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next())
+                    list.add(new DeductionExportRow(rs.getString(1), rs.getInt(2), rs.getString(3),
+                        rs.getString(4), rs.getBigDecimal(5) != null ? rs.getBigDecimal(5) : java.math.BigDecimal.ZERO));
+            }
+        }
+        return list;
+    }
+
+    public static class DeductionExportRow {
+        public final String departmentName;
+        public final int employeeId;
+        public final String employeeName;
+        public final String deductionType;
+        public final java.math.BigDecimal amount;
+        public DeductionExportRow(String dept, int empId, String name, String type, java.math.BigDecimal amt) {
+            departmentName = dept; employeeId = empId; employeeName = name; deductionType = type; amount = amt;
+        }
+    }
+
     public static class DeductionRow {
         public final int deductionId, employeeId, payrollPeriodId;
         public final String fullName, deductionType, description, status;
