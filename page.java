@@ -36,7 +36,7 @@ public class page {
         leftPanel.setBackground(new Color(45, 52, 54));
         leftPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(30, 30, 30)));
 
-        String[] nav = { "Employee", "Deductions", "Compensation" };
+        String[] nav = { "Employee", "Deductions", "Compensation", "Reports" };
         JButton[] buttons = new JButton[nav.length + 1];
         for (int i = 0; i < nav.length; i++) {
             buttons[i] = createNavButton(nav[i]);
@@ -51,12 +51,14 @@ public class page {
         cardPanel.add(buildEmployeeHubPage(), "PAGE_EMPLOYEE");
         cardPanel.add(buildDeductionsHubPage(), "PAGE_DEDUCTIONS");
         cardPanel.add(buildCompensationHubPage(), "PAGE_COMP");
+        cardPanel.add(buildReportsPage(), "PAGE_REPORTS");
 
         // Nav listeners by button index
         buttons[0].addActionListener(e -> cardLayout.show(cardPanel, "PAGE_EMPLOYEE"));
         buttons[1].addActionListener(e -> cardLayout.show(cardPanel, "PAGE_DEDUCTIONS"));
         buttons[2].addActionListener(e -> cardLayout.show(cardPanel, "PAGE_COMP"));
-        buttons[3].addActionListener(e -> { AppSession.clear(); System.exit(0); });
+        buttons[3].addActionListener(e -> cardLayout.show(cardPanel, "PAGE_REPORTS"));
+        buttons[4].addActionListener(e -> { AppSession.clear(); System.exit(0); });
 
         mainPanel.add(leftPanel, BorderLayout.WEST);
         mainPanel.add(cardPanel, BorderLayout.CENTER);
@@ -1043,6 +1045,117 @@ public class page {
         main.add(north, BorderLayout.NORTH);
         main.add(left, BorderLayout.WEST);
         main.add(scroll, BorderLayout.CENTER);
+        return main;
+    }
+
+    // --- Reports (company-style exports) ---
+    private static JPanel buildReportsPage() {
+        JPanel main = new JPanel(new BorderLayout(15, 15));
+        main.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        main.setBackground(Color.WHITE);
+        main.add(new JLabel("Reports", SwingConstants.LEFT) {{ setFont(new Font("SansSerif", Font.BOLD, 22)); }}, BorderLayout.NORTH);
+
+        JComboBox<PayrollPeriodDao.PayrollPeriod> cmbPeriod = new JComboBox<>();
+        JComboBox<PayrollPeriodDao.PayrollPeriod> cmbPeriodEnd = new JComboBox<>();
+        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        top.setOpaque(false);
+        top.add(new JLabel("Payroll period:"));
+        top.add(cmbPeriod);
+        top.add(new JLabel("  (for 13th month: end period)"));
+        top.add(cmbPeriodEnd);
+
+        Runnable loadPeriods = () -> {
+            try {
+                cmbPeriod.removeAllItems();
+                cmbPeriodEnd.removeAllItems();
+                cmbPeriod.addItem(null);
+                cmbPeriodEnd.addItem(null);
+                for (PayrollPeriodDao.PayrollPeriod p : PayrollPeriodDao.findAll()) {
+                    cmbPeriod.addItem(p);
+                    cmbPeriodEnd.addItem(p);
+                }
+                if (cmbPeriod.getItemCount() > 1) cmbPeriod.setSelectedIndex(1);
+                if (cmbPeriodEnd.getItemCount() > 1) cmbPeriodEnd.setSelectedIndex(1);
+            } catch (SQLException ex) { JOptionPane.showMessageDialog(main, ex.getMessage()); }
+        };
+        loadPeriods.run();
+
+        JPanel center = new JPanel(new GridLayout(0, 1, 10, 10));
+        center.setOpaque(false);
+        center.setBorder(BorderFactory.createTitledBorder("Export company-style reports (CSV)"));
+
+        JButton btnDeduction = new JButton("Export Deduction Summary (company format)");
+        btnDeduction.setBackground(new Color(0, 102, 204));
+        btnDeduction.setForeground(Color.WHITE);
+        btnDeduction.addActionListener(e -> {
+            if (!(cmbPeriod.getSelectedItem() instanceof PayrollPeriodDao.PayrollPeriod)) {
+                JOptionPane.showMessageDialog(main, "Select a payroll period first."); return;
+            }
+            PayrollPeriodDao.PayrollPeriod p = (PayrollPeriodDao.PayrollPeriod) cmbPeriod.getSelectedItem();
+            ReportExporter.exportDeductionSummaryCompanyFormat(main, p.periodId, p.periodName);
+        });
+
+        JButton btnCompensation = new JButton("Export Compensation Summary (company format)");
+        btnCompensation.setBackground(new Color(0, 102, 204));
+        btnCompensation.setForeground(Color.WHITE);
+        btnCompensation.addActionListener(e -> {
+            if (!(cmbPeriod.getSelectedItem() instanceof PayrollPeriodDao.PayrollPeriod)) {
+                JOptionPane.showMessageDialog(main, "Select a payroll period first."); return;
+            }
+            PayrollPeriodDao.PayrollPeriod p = (PayrollPeriodDao.PayrollPeriod) cmbPeriod.getSelectedItem();
+            ReportExporter.exportCompensationSummaryCompanyFormat(main, p.periodId, p.periodName);
+        });
+
+        JButton btnLedger = new JButton("Export Signature Ledger");
+        btnLedger.setBackground(new Color(0, 102, 204));
+        btnLedger.setForeground(Color.WHITE);
+        btnLedger.addActionListener(e -> {
+            if (!(cmbPeriod.getSelectedItem() instanceof PayrollPeriodDao.PayrollPeriod)) {
+                JOptionPane.showMessageDialog(main, "Select a payroll period first."); return;
+            }
+            PayrollPeriodDao.PayrollPeriod p = (PayrollPeriodDao.PayrollPeriod) cmbPeriod.getSelectedItem();
+            ReportExporter.exportSignatureLedger(main, p.periodId, p.periodName);
+        });
+
+        JButton btnFunding = new JButton("Export Payroll Funding (bank list)");
+        btnFunding.setBackground(new Color(0, 102, 204));
+        btnFunding.setForeground(Color.WHITE);
+        btnFunding.addActionListener(e -> {
+            if (!(cmbPeriod.getSelectedItem() instanceof PayrollPeriodDao.PayrollPeriod)) {
+                JOptionPane.showMessageDialog(main, "Select a payroll period first."); return;
+            }
+            PayrollPeriodDao.PayrollPeriod p = (PayrollPeriodDao.PayrollPeriod) cmbPeriod.getSelectedItem();
+            java.util.Date payDate = p.payDate != null ? new java.util.Date(p.payDate.getTime()) : null;
+            ReportExporter.exportPayrollFunding(main, p.periodId, p.periodName, payDate);
+        });
+
+        JButton btn13th = new JButton("Export 13th Month (quarter)");
+        btn13th.setBackground(new Color(0, 102, 204));
+        btn13th.setForeground(Color.WHITE);
+        btn13th.addActionListener(e -> {
+            if (!(cmbPeriod.getSelectedItem() instanceof PayrollPeriodDao.PayrollPeriod) || !(cmbPeriodEnd.getSelectedItem() instanceof PayrollPeriodDao.PayrollPeriod)) {
+                JOptionPane.showMessageDialog(main, "Select start and end payroll periods for the quarter."); return;
+            }
+            PayrollPeriodDao.PayrollPeriod startP = (PayrollPeriodDao.PayrollPeriod) cmbPeriod.getSelectedItem();
+            PayrollPeriodDao.PayrollPeriod endP = (PayrollPeriodDao.PayrollPeriod) cmbPeriodEnd.getSelectedItem();
+            if (startP.startDate == null || endP.startDate == null) {
+                JOptionPane.showMessageDialog(main, "Periods must have start dates."); return;
+            }
+            java.sql.Date qStart = startP.startDate.before(endP.startDate) ? startP.startDate : endP.startDate;
+            java.sql.Date qEnd = endP.startDate.after(startP.startDate) ? endP.startDate : startP.startDate;
+            try {
+                ReportExporter.export13thMonth(main, qStart, qEnd);
+            } catch (Exception ex) { JOptionPane.showMessageDialog(main, ex.getMessage()); }
+        });
+
+        center.add(btnDeduction);
+        center.add(btnCompensation);
+        center.add(btnLedger);
+        center.add(btnFunding);
+        center.add(btn13th);
+
+        main.add(top, BorderLayout.NORTH);
+        main.add(center, BorderLayout.CENTER);
         return main;
     }
 

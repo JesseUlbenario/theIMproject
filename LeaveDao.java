@@ -5,7 +5,7 @@ import java.util.List;
 public class LeaveDao {
     public static List<LeaveRow> findAll(String statusFilter) throws SQLException {
         List<LeaveRow> list = new ArrayList<>();
-        String sql = "SELECT l.leave_id, l.employee_id, e.full_name, l.leave_type, l.start_date, l.end_date, l.total_days, l.with_pay, l.status FROM Leave l JOIN Employee e ON e.employee_id = l.employee_id";
+        String sql = "SELECT l.leave_id, l.employee_id, e.full_name, l.leave_type, l.start_date, l.end_date, l.total_days, l.with_pay, l.status FROM `Leave` l JOIN Employee e ON e.employee_id = l.employee_id";
         if (statusFilter != null && !statusFilter.isEmpty() && !"All".equals(statusFilter))
             sql += " WHERE l.status = ?";
         sql += " ORDER BY l.start_date DESC";
@@ -25,7 +25,7 @@ public class LeaveDao {
     public static void insert(int employeeId, String leaveType, Date start, Date end, java.math.BigDecimal totalDays, boolean withPay, String status, String remarks) throws SQLException {
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(
-                 "INSERT INTO Leave (employee_id, leave_type, start_date, end_date, total_days, with_pay, status, remarks) VALUES (?,?,?,?,?,?,?,?)")) {
+                 "INSERT INTO `Leave` (employee_id, leave_type, start_date, end_date, total_days, with_pay, status, remarks) VALUES (?,?,?,?,?,?,?,?)")) {
             ps.setInt(1, employeeId);
             ps.setString(2, leaveType);
             ps.setDate(3, start);
